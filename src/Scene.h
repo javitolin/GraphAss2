@@ -43,11 +43,19 @@ public:
 		return yResolution;
 	}
 
+	const Vector3f& getCamera() const {
+		return camera;
+	}
+
+	void setCamera(const Vector3f& camera) {
+		this->camera = camera;
+	}
 
 private:
 	Vector3f centerCoordinates;
 	Vector3f upVector;
 	Vector3f ambientLight;
+	Vector3f camera;
 	GLfloat screenWidth;
 	GLfloat xResolution;
 	GLfloat yResolution;

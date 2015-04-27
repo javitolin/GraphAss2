@@ -18,6 +18,7 @@ Scene::Scene(Vector3f cc,Vector3f uv,Vector3f al,GLfloat sW,GLfloat xR,GLfloat y
 	screenWidth = sW;
 	xResolution = xR;
 	yResolution = yR;
+	camera = Vector3f(0,0,0);
 }
 
 

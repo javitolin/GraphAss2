@@ -10,13 +10,15 @@
 #include "GL/gl.h"
 #include "GL/glut.h"
 #include "Vector3f.h"
+#include "Scene.h"
 namespace ShapeObjects {
 
 
 class Plane {
 public:
+	Plane();
 	Plane(Vector3f,Vector3f,Vector3f,Vector3f,Vector3f, GLfloat,GLfloat,GLfloat);
-
+	GLint intersect(Scene,Vector3f);
 	const Vector3f& getCenter() const {
 		return center;
 	}

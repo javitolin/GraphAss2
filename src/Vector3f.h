@@ -480,7 +480,6 @@ public:
 	{
 		return(a[0] * b[0] + a[1] * b[1] + a[2] * b[2]);
 	}
-		
 	
 	static inline float squaredDistance (const Vector3f &v1, const Vector3f &v2)
 	{

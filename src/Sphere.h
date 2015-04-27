@@ -10,12 +10,16 @@
 #include "GL/gl.h"
 #include "GL/glut.h"
 #include "Vector3f.h"
+#include "Scene.h"
+#include "Ray.h"
 namespace ShapeObjects {
 
 
 class Sphere {
 public:
+	Sphere();
 	Sphere(Vector3f,Vector3f,Vector3f,Vector3f,GLfloat,GLfloat);
+	GLfloat intersect(Scene,Ray);
 
 	const Vector3f& getCenter() const {
 		return center;
