@@ -14,8 +14,11 @@ Sphere::Sphere(Vector3f c, Vector3f kAv, Vector3f kDv, Vector3f kSv, GLfloat r,
 	radius = r;
 	center = c;
 	kA = kAv;
+	kA.normalize();
 	kD = kDv;
+	kD.normalize();
 	kS = kSv;
+	kS.normalize();
 	shine = sh;
 }
 GLfloat Sphere::intersect(Scene s, Ray ray, Vector3f& v) {
@@ -28,8 +31,14 @@ GLfloat Sphere::intersect(Scene s, Ray ray, Vector3f& v) {
 	GLfloat th = sqrt(pow(radius,2) - dpow);
 	GLfloat t1 = tm - th;
 	GLfloat t2 = tm + th;
-	if(t1 > 0) return t1;
-	else if (t2 > 0) return t2;
+	if(t1 > 0){
+		v = ray.getOriginO() + t1*ray.getDirectionV();
+		return t1;
+	}
+	else if (t2 > 0){
+		v = ray.getOriginO() + t2*ray.getDirectionV();
+		return t2;
+	}
 	else return -2;
 }
 
@@ -37,5 +46,15 @@ Vector3f Sphere::getNormal(Vector3f p){
 	Vector3f ans(0,0,0);
 	ans = (p - center)/(p.distance(p,center));
 	return ans;
+}
+
+void Sphere::moveX(int l){
+	center.x += l;
+}
+void Sphere::moveY(int l){
+	center.y += l;
+}
+void Sphere::moveZ(int l){
+	center.z += l;
 }
 }

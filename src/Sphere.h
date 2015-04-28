@@ -19,6 +19,9 @@ class Sphere {
 public:
 	Sphere();
 	Sphere(Vector3f,Vector3f,Vector3f,Vector3f,GLfloat,GLfloat);
+	void moveX(int l);
+	void moveY(int l);
+	void moveZ(int l);
 	GLfloat intersect(Scene,Ray,Vector3f&);
 	Vector3f getNormal(Vector3f);
 	const Vector3f& getCenter() const {

@@ -20,7 +20,7 @@
 
 using namespace std;
 using namespace ShapeObjects;
-
+#define M_PI 3.14159265358979323846
 void startRayTracing();
 void drawImage();
 Scene scene;
@@ -63,6 +63,12 @@ vector<float> extractNumbers(char *line) {
 	return a;
 }
 
+void startRay() {
+	image = new GLubyte[scene.getResolutionX() * scene.getResolutionY() * 3];
+	startRayTracing();
+	drawImage();
+}
+
 int main(int argc, char* argv[]) {
 	ifstream sceneFile("scene.txt");
 	char output[512];
@@ -73,7 +79,7 @@ int main(int argc, char* argv[]) {
 			if (strcmp(output, "scene") == 0) {
 				objectsFound++;
 				sceneFile >> output;
-				cout << "scene!" << endl;
+				//cout << "scene!" << endl;
 				vector<float> params = extractNumbers(output);
 				Vector3f cc(params[0], params[1], params[2]);
 				Vector3f up(params[3], params[4], params[5]);
@@ -85,7 +91,7 @@ int main(int argc, char* argv[]) {
 			} else if (strcmp(output, "light") == 0) {
 				objectsFound++;
 				sceneFile >> output;
-				cout << "light!" << endl;
+				//cout << "light!" << endl;
 				extractNumbers(output);
 				vector<float> params = extractNumbers(output);
 				Vector3f ld(params[0], params[1], params[2]);
@@ -102,7 +108,7 @@ int main(int argc, char* argv[]) {
 			} else if (strcmp(output, "spher") == 0) {
 				objectsFound++;
 				sceneFile >> output;
-				cout << "spher!" << endl;
+				//cout << "spher!" << endl;
 				extractNumbers(output);
 				vector<float> params = extractNumbers(output);
 				Vector3f c(params[0], params[1], params[2]);
@@ -115,7 +121,7 @@ int main(int argc, char* argv[]) {
 			} else if (strcmp(output, "plane") == 0) {
 				objectsFound++;
 				sceneFile >> output;
-				cout << "plane!" << endl;
+				//cout << "plane!" << endl;
 				extractNumbers(output);
 				vector<float> params = extractNumbers(output);
 				Vector3f n(params[0], params[1], params[2]);
@@ -131,12 +137,19 @@ int main(int argc, char* argv[]) {
 		}
 		sceneFile.close();
 	}
-	image = new GLubyte[scene.getResolutionX() * scene.getResolutionY() * 3];
-	startRayTracing();
+	cout << "YOU CAN MOVE THE OBJECTS!" << endl;
+	cout << "Enter the number of the object to move" << endl;
+	cout
+			<< "Enter 'c' if you want to move a Sphere or 'v' if you want to move a Plane"
+			<< endl;
+	cout << "Use 'w' and 's' to move the object up and down" << endl;
+	cout << "Use 'a' and 'd' to move the object left and right" << endl;
+	cout << "Use 'q' and 'e' to move the object nearer and farer" << endl;
 	glutInit(&argc, argv);
-	drawImage();
+	startRay();
 	cout << "Reading file completed. Found: " << objectsFound << " objects"
 			<< endl;
+	delete image;
 	return 0;
 }
 Ray ConstructRayThroughPixel(Vector3f source, int i, int j) {
@@ -148,7 +161,6 @@ Ray ConstructRayThroughPixel(Vector3f source, int i, int j) {
 			scene.getUpVector(), scene.getCenterCoordinates());
 	vRight.normalize();
 	Vector3f UP = scene.getUpVector();
-	UP.normalize();
 	Pc.normalize();
 	GLfloat R = (float) scene.getScreenWidth() / (float) scene.getResolutionX();
 
@@ -156,9 +168,7 @@ Ray ConstructRayThroughPixel(Vector3f source, int i, int j) {
 			+ (float) (i - floor((float) scene.getResolutionX() / 2)) * R
 					* vRight
 			- (float) (j - floor((float) scene.getResolutionY() / 2)) * R * UP;
-	//P = P - Pc;
 
-	//cout << P.x << " " << P.y << " " << P.z << endl;
 	P.normalize();
 	Ray ans(source, P);
 	return ans;
@@ -168,33 +178,36 @@ Intersection FindIntersection(Ray ray) {
 	Sphere min_sphere;
 	Plane min_plane;
 	Vector3f poi;
+	Vector3f poiTemp;
 	bool fromPlane = false;
 	bool found = false;
 	for (unsigned int i = 0; i < sphereArray.size(); i++) {
 		Sphere sp = sphereArray[i];
-		GLfloat t = sp.intersect(scene, ray, poi);
+		GLfloat t = sp.intersect(scene, ray, poiTemp);
 		if (t > 0) {
 			if (t < min_t) {
 				min_sphere = sp;
 				min_t = t;
 				found = true;
+				poi = poiTemp;
 			}
 		}
 	}
 	for (unsigned int i = 0; i < planeArray.size(); i++) {
 		Plane p = planeArray[i];
-		GLfloat t = p.intersect(scene, ray, poi);
+		GLfloat t = p.intersect(scene, ray, poiTemp);
 		if (t > 0) {
 			if (t < min_t) {
 				fromPlane = true;
 				min_plane = p;
 				min_t = t;
 				found = true;
+				poi = poiTemp;
 			}
 		}
 	}
 	if (!found) {
-		return Intersection(-1, min_sphere, poi);
+		return Intersection(-1337, min_sphere, poi);
 	} else {
 		if (fromPlane) {
 			return Intersection(min_t, min_plane, poi);
@@ -204,23 +217,123 @@ Intersection FindIntersection(Ray ray) {
 	}
 }
 
-Vector3f GetColor(Ray ray, Intersection hit) {
-	Vector3f ans(0,0,0);
-	if(hit.isSphere){
-		//SPHERE
-		ans += hit.getSphere().getA() * scene.getAmbientLight();
-		Vector3f sum(0,0,0);
-		for(int i = 0; i < lights.size(); i++){
-			Vector3f L = lights[i].getLightPosition() - hit.getPoi();
-			L.normalize();
-			sum += hit.getSphere().getD() * (hit.getSphere().getNormal(hit.getPoi()) * L);
-			sum +=
+void sphereGetColor(Intersection hit, Vector3f& ans) {
+	//SPHERE
+	ans += hit.getSphere().getA() * scene.getAmbientLight();
+	Vector3f sum(0, 0, 0);
+	Vector3f hitPoint = hit.getPoi();
+	Vector3f N = hit.getSphere().getNormal(hitPoint);
+	for (unsigned int i = 0; i < lights.size(); i++) {
+		Vector3f L = lights[i].getLightPosition() - hitPoint;
+		N.normalize();
+		L.normalize();
+		sum += hit.getSphere().getD() * (L.dotProduct(L, N))
+				* lights[0].getLightIntensity();
+		Vector3f V = scene.getCamera() - hitPoint;
+		Vector3f R = 2
+				* (lights[i].getLightDirection().dotProduct(
+						lights[i].getLightDirection(), N)) * N
+				- lights[i].getLightDirection();
+		V.normalize();
+		R.normalize();
+		sum += hit.getSphere().getS()
+				* (pow(V.dotProduct(V, R), (int) hit.getSphere().getShine()));
+		if (!lights[i].isSpotlight()) {
+			sum *= lights[i].getLightIntensity();
+		} else {
+			Vector3f vecToLight = hit.poi - lights[i].getLightDirection();
+			Ray r(hit.getPoi(), vecToLight);
+			Intersection in = FindIntersection(r);
+			if (in.getT() == -1337) {
+				GLfloat angle =
+						acos(
+								hit.poi.dotProduct(hit.poi, vecToLight)
+										/ (hit.poi.getLength()
+												* vecToLight.getLength()));
+				angle = angle * (180 / M_PI);
+				if (angle <= lights[i].getCutoff()) {
+					sum *= lights[i].getLightIntensity();
+				} else {
+					sum *= 0;
+				}
+			} else if(in.getT() > 0){
+				sum *= 0;
+			}
 		}
 	}
-	else{
-		//SPHERE
-		ans += hit.getPlane().getA() * scene.getAmbientLight();
+	ans += sum;
+}
+
+void planeGetColor(Intersection hit, Vector3f& ans) {
+	//PLANE
+	ans += hit.getPlane().getA() * scene.getAmbientLight();
+	Vector3f sum(0, 0, 0);
+	Vector3f hitPoint = hit.getPoi();
+	Vector3f N = hit.getPlane().getNormal();
+	for (unsigned int i = 0; i < lights.size(); i++) {
+		Vector3f L = lights[i].getLightPosition() - hitPoint;
+		N.normalize();
+		L.normalize();
+		sum += hit.getPlane().getD() * (L.dotProduct(L, N))
+				* lights[0].getLightIntensity();
+		Vector3f V = scene.getCamera() - hitPoint;
+		Vector3f R = 2
+				* (lights[i].getLightDirection().dotProduct(
+						lights[i].getLightDirection(), N)) * N
+				- lights[i].getLightDirection();
+		V.normalize();
+		R.normalize();
+		sum += hit.getPlane().getS()
+				* (pow(V.dotProduct(V, R), (int) hit.getPlane().getShine()));
+		if (!lights[i].isSpotlight()) {
+			sum *= lights[i].getLightIntensity();
+		} else {
+			Vector3f vecToLight = lights[i].getLightDirection() - hit.poi;
+			Ray r(hit.getPoi(), vecToLight);
+			Intersection in = FindIntersection(r);
+			if (in.getT() == -1337) {
+				Vector3f vecToLight = hit.poi - lights[i].getLightDirection();
+				GLfloat angle =
+						acos(
+								hit.poi.dotProduct(hit.poi, vecToLight)
+										/ (hit.poi.getLength()
+												* vecToLight.getLength()));
+				angle = angle * (180 / M_PI);
+				if (angle <= lights[i].getCutoff()) {
+					sum *= lights[i].getLightIntensity();
+				} else {
+					sum *= 0;
+				}
+			} else if(in.getT() > 0){
+				sum *= 0;
+			}
+		}
 	}
+	ans += sum;
+}
+
+Vector3f GetColor(Ray ray, Intersection hit) {
+	Vector3f ans(0, 0, 0);
+	if (hit.isSphere) {
+		//SPHERE
+		sphereGetColor(hit, ans);
+	} else {
+		//PLANE
+		planeGetColor(hit, ans);
+	}
+	if (ans.x > 1)
+		ans.x = 1;
+	if (ans.y > 1)
+		ans.y = 1;
+	if (ans.z > 1)
+		ans.z = 1;
+	if (ans.x < 0)
+		ans.x = 0;
+	if (ans.y < 0)
+		ans.y = 0;
+	if (ans.z < 0)
+		ans.z = 0;
+	//cout << ans.x << " " << ans.y << " " << ans.z << endl;
 	return ans;
 }
 
@@ -232,38 +345,33 @@ void startRayTracing() {
 			Ray ray = ConstructRayThroughPixel(scene.getCamera(), i, j);
 			Intersection hit = FindIntersection(ray);
 			if (hit.t > 0) {
-				Vector3f color = GetColor(ray,hit);
-				image[3 * (i + j * width) + 0] = color.x*255;
-				image[3 * (i + j * width) + 1] = color.y*255;
-				image[3 * (i + j * width) + 2] = color.z*255;
+				Vector3f color = GetColor(ray, hit);
+				image[3 * (i + j * width) + 0] = color.z * 255;
+				image[3 * (i + j * width) + 1] = color.y * 255;
+				image[3 * (i + j * width) + 2] = color.x * 255;
 			} else {
 				image[3 * (i + j * width) + 0] = 0;
 				image[3 * (i + j * width) + 1] = 0;
 				image[3 * (i + j * width) + 2] = 0;
-			}/*
-			 for (int k = 0; k < 3; k++) {
-			 image[i + j * width] = 255;
-			 }*/
-			//image[i][j] = GetColor( ray, hit);
+			}
 		}
 	}
-	/*
-	 for(int i = 0; i < scene.getResolutionX()*scene.getResolutionY()*3; i++){
-	 image[i] = 120;
-	 }*/
 }
 
 /* OPENGL GRAPHICS STUFF*/
+
+void keyPressed(unsigned char key, int x, int y);
+
 GLuint loadTexture();
 void mydisplay(void);
 GLuint texture;
 void drawImage() {
 	glutInitDisplayMode(GLUT_SINGLE | GLUT_RGB);
 	glutInitWindowSize(scene.getResolutionX(), scene.getResolutionY());
-	glutCreateWindow("3DMOFO");
+	glutCreateWindow("AMAZING RAY TRACING 3D");
 	glOrtho(-1.0, 1.0, -1.0, 1.0, 2.0, -2.0);
-	texture = loadTexture();
 	glutDisplayFunc(mydisplay);
+	glutKeyboardFunc(keyPressed);
 	glutMainLoop();
 }
 
@@ -283,6 +391,7 @@ GLuint loadTexture() {
 void mydisplay(void) {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+	texture = loadTexture();
 	glBindTexture(GL_TEXTURE_2D, texture);
 	glBegin(GL_QUADS);
 	glTexCoord2f(0, 0);
@@ -295,5 +404,82 @@ void mydisplay(void) {
 	glVertex2f(1, -1);
 	glEnd();
 	glFlush();
+}
+int lastNumberPressed = -1;
+bool spherePressed;
+void keyPressed(unsigned char key, int x, int y) {
+	if (key >= 48 && key <= 57) {
+		lastNumberPressed = (int) (key - '0');
+	} else if (lastNumberPressed == -1) {
+		cout << "Insert a number and then c for Spheres or v for Planes"
+				<< endl;
+	} else {
+		switch (key) {
+		case 'a':
+			if (spherePressed && lastNumberPressed < (int) sphereArray.size())
+				sphereArray[lastNumberPressed].moveX(-1);
+			else if (!spherePressed
+					&& lastNumberPressed < (int) planeArray.size())
+				planeArray[lastNumberPressed].moveX(-1);
+			else
+				cout << "Errors where found, try again you will" << endl;
+			break;
+		case 'd':
+			if (spherePressed && lastNumberPressed < (int) sphereArray.size())
+				sphereArray[lastNumberPressed].moveX(1);
+			else if (!spherePressed
+					&& lastNumberPressed < (int) planeArray.size())
+				planeArray[lastNumberPressed].moveX(1);
+			else
+				cout << "Errors where found, try again you will" << endl;
+			break;
+		case 's':
+			if (spherePressed && lastNumberPressed < (int) sphereArray.size())
+				sphereArray[lastNumberPressed].moveY(-1);
+			else if (!spherePressed
+					&& lastNumberPressed < (int) planeArray.size())
+				planeArray[lastNumberPressed].moveY(-1);
+			else
+				cout << "Errors where found, try again you will" << endl;
+			break;
+		case 'w':
+			if (spherePressed && lastNumberPressed < (int) sphereArray.size())
+				sphereArray[lastNumberPressed].moveY(1);
+			else if (!spherePressed
+					&& lastNumberPressed < (int) planeArray.size())
+				planeArray[lastNumberPressed].moveY(1);
+			else
+				cout << "Errors where found, try again you will" << endl;
+			break;
+		case 'q':
+			if (spherePressed && lastNumberPressed < (int) sphereArray.size())
+				sphereArray[lastNumberPressed].moveZ(1);
+			else if (!spherePressed
+					&& lastNumberPressed < (int) planeArray.size())
+				planeArray[lastNumberPressed].moveZ(1);
+			else
+				cout << "Errors where found, try again you will" << endl;
+			break;
+		case 'e':
+			if (spherePressed && lastNumberPressed < (int) sphereArray.size())
+				sphereArray[lastNumberPressed].moveZ(-1);
+			else if (!spherePressed
+					&& lastNumberPressed < (int) planeArray.size())
+				planeArray[lastNumberPressed].moveZ(-1);
+			else
+				cout << "Errors where found, try again you will" << endl;
+			break;
+		case 'c':
+			spherePressed = true;
+			cout << "Sphere number " << lastNumberPressed << " chosen" << endl;
+			break;
+		case 'v':
+			spherePressed = false;
+			cout << "Plane number " << lastNumberPressed << " chosen" << endl;
+			break;
+		}
+	}
+	startRayTracing();
+	glutPostRedisplay();
 }
 

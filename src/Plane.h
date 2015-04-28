@@ -20,6 +20,9 @@ public:
 	Plane();
 	Plane(Vector3f,Vector3f,Vector3f,Vector3f,Vector3f, GLfloat,GLfloat,GLfloat);
 	GLfloat intersect(Scene,Ray,Vector3f&);
+	void moveX(int);
+	void moveY(int);
+	void moveZ(int);
 	//Vector3f getNormal(Vector3f);
 	const Vector3f& getCenter() const {
 		return center;
