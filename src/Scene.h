@@ -31,7 +31,7 @@ public:
 		return screenWidth;
 	}
 
-	const Vector3f& getUpVector() const {
+	Vector3f& getUpVector() {
 		return upVector;
 	}
 

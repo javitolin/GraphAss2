@@ -21,9 +21,10 @@ Plane::Plane(Vector3f n,Vector3f c,Vector3f kAv,Vector3f kDv,Vector3f kSv, GLflo
 	height = h;
 	shine = s;
 }
-
-GLint Plane::intersect(Scene s, Vector3f ray){
+GLfloat Plane::intersect(Scene s,Ray r,Vector3f& poi){
+	GLfloat t = normal.dotProduct(normal,((center - r.getOriginO())/normal.dotProduct(normal,r.getDirectionV())));
+	if(t > 0) return t;
+	else return -1;
 
 }
-
 } /* namespace Main */

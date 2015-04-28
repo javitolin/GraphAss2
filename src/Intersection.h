@@ -14,8 +14,8 @@ using namespace ShapeObjects;
 class Intersection {
 public:
 	Intersection();
-	Intersection(GLfloat, Sphere s);
-	Intersection(GLfloat, Plane p);
+	Intersection(GLfloat, Sphere s, Vector3f v);
+	Intersection(GLfloat, Plane p,Vector3f v);
 
 	const Plane& getPlane() const {
 		return plane;
@@ -25,7 +25,7 @@ public:
 		this->plane = plane;
 	}
 
-	const Sphere& getSphere() const {
+	Sphere& getSphere() {
 		return sphere;
 	}
 
@@ -41,9 +41,19 @@ public:
 		this->t = t;
 	}
 
+	const Vector3f& getPoi() const {
+		return poi;
+	}
+
+	void setPoi(const Vector3f& poi) {
+		this->poi = poi;
+	}
+
 	GLfloat t;
 	Sphere sphere;
 	Plane plane;
+	Vector3f poi;
+	bool isSphere;
 };
 
 #endif /* SRC_INTERSECTION_H_ */

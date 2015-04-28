@@ -25,15 +25,15 @@ void startRayTracing();
 void drawImage();
 Scene scene;
 vector<Light> lights;
-vector<Plane> planes;
+vector<Plane> planeArray;
 vector<Sphere> sphereArray;
 GLubyte *image;
 Vector3f camdir;
 Vector3f camright;
 Vector3f campos;
-Vector3f X(1,0,0);
-Vector3f Y(0,1,0);
-Vector3f Z(0,0,1);
+Vector3f X(1, 0, 0);
+Vector3f Y(0, 1, 0);
+Vector3f Z(0, 0, 1);
 vector<float> extractNumbers(char *line) {
 	vector<float> a;
 	string s = line;
@@ -126,12 +126,12 @@ int main(int argc, char* argv[]) {
 				GLfloat w = params[15];
 				GLfloat h = params[16];
 				GLfloat s = params[17];
-				planes.push_back(Plane(n, c, kAv, kDv, kSv, w, h, s));
+				planeArray.push_back(Plane(n, c, kAv, kDv, kSv, w, h, s));
 			}
 		}
 		sceneFile.close();
 	}
-	image = new GLubyte [scene.getResolutionX()*scene.getResolutionY()*3];
+	image = new GLubyte[scene.getResolutionX() * scene.getResolutionY() * 3];
 	startRayTracing();
 	glutInit(&argc, argv);
 	drawImage();
@@ -140,26 +140,88 @@ int main(int argc, char* argv[]) {
 	return 0;
 }
 Ray ConstructRayThroughPixel(Vector3f source, int i, int j) {
-	Vector3f direction(source.x - i,source.y -j, source.z);
-	Ray ans(source,direction);
+	//scene.getCenterCoordinates() +
+	GLfloat d = scene.getCenterCoordinates().distance(
+			scene.getCenterCoordinates(), source);
+	Vector3f Pc = source + scene.getCenterCoordinates() * d;
+	Vector3f vRight = scene.getCenterCoordinates().crossProduct(
+			scene.getUpVector(), scene.getCenterCoordinates());
+	vRight.normalize();
+	Vector3f UP = scene.getUpVector();
+	UP.normalize();
+	Pc.normalize();
+	GLfloat R = (float) scene.getScreenWidth() / (float) scene.getResolutionX();
+
+	Vector3f P = Pc
+			+ (float) (i - floor((float) scene.getResolutionX() / 2)) * R
+					* vRight
+			- (float) (j - floor((float) scene.getResolutionY() / 2)) * R * UP;
+	//P = P - Pc;
+
+	//cout << P.x << " " << P.y << " " << P.z << endl;
+	P.normalize();
+	Ray ans(source, P);
 	return ans;
 }
 Intersection FindIntersection(Ray ray) {
 	GLint min_t = numeric_limits<int>::max();
-	Sphere min_primitive;
+	Sphere min_sphere;
+	Plane min_plane;
+	Vector3f poi;
+	bool fromPlane = false;
+	bool found = false;
 	for (unsigned int i = 0; i < sphereArray.size(); i++) {
 		Sphere sp = sphereArray[i];
-		GLfloat t = sp.intersect(scene, ray);
-		if (t < min_t) {
-			min_primitive = sp;
-			min_t = t;
+		GLfloat t = sp.intersect(scene, ray, poi);
+		if (t > 0) {
+			if (t < min_t) {
+				min_sphere = sp;
+				min_t = t;
+				found = true;
+			}
 		}
 	}
-	return Intersection(min_t, min_primitive);
+	for (unsigned int i = 0; i < planeArray.size(); i++) {
+		Plane p = planeArray[i];
+		GLfloat t = p.intersect(scene, ray, poi);
+		if (t > 0) {
+			if (t < min_t) {
+				fromPlane = true;
+				min_plane = p;
+				min_t = t;
+				found = true;
+			}
+		}
+	}
+	if (!found) {
+		return Intersection(-1, min_sphere, poi);
+	} else {
+		if (fromPlane) {
+			return Intersection(min_t, min_plane, poi);
+		} else {
+			return Intersection(min_t, min_sphere, poi);
+		}
+	}
 }
 
-Vector3f GetColor(Vector3f ray, Intersection hit) {
-
+Vector3f GetColor(Ray ray, Intersection hit) {
+	Vector3f ans(0,0,0);
+	if(hit.isSphere){
+		//SPHERE
+		ans += hit.getSphere().getA() * scene.getAmbientLight();
+		Vector3f sum(0,0,0);
+		for(int i = 0; i < lights.size(); i++){
+			Vector3f L = lights[i].getLightPosition() - hit.getPoi();
+			L.normalize();
+			sum += hit.getSphere().getD() * (hit.getSphere().getNormal(hit.getPoi()) * L);
+			sum +=
+		}
+	}
+	else{
+		//SPHERE
+		ans += hit.getPlane().getA() * scene.getAmbientLight();
+	}
+	return ans;
 }
 
 void startRayTracing() {
@@ -168,24 +230,27 @@ void startRayTracing() {
 	for (int i = 0; i < width; i++) {
 		for (int j = 0; j < height; j++) {
 			Ray ray = ConstructRayThroughPixel(scene.getCamera(), i, j);
-			//cout << ray.x << " " << ray.y << " " << ray.z << endl;
 			Intersection hit = FindIntersection(ray);
-			//cout << hit.t << endl;
-			if (hit.t > 0){
-				cout << "NOT ZERO!!!" << endl;
-				image[i+j*width] = 0;
-			}
-			else{
-				//cout << "..." << endl;
-				image[i+j*width] = 255;
-			}
+			if (hit.t > 0) {
+				Vector3f color = GetColor(ray,hit);
+				image[3 * (i + j * width) + 0] = color.x*255;
+				image[3 * (i + j * width) + 1] = color.y*255;
+				image[3 * (i + j * width) + 2] = color.z*255;
+			} else {
+				image[3 * (i + j * width) + 0] = 0;
+				image[3 * (i + j * width) + 1] = 0;
+				image[3 * (i + j * width) + 2] = 0;
+			}/*
+			 for (int k = 0; k < 3; k++) {
+			 image[i + j * width] = 255;
+			 }*/
 			//image[i][j] = GetColor( ray, hit);
 		}
 	}
 	/*
-	for(int i = 0; i < scene.getResolutionX()*scene.getResolutionY()*3; i++){
-		image[i] = 255;
-	}*/
+	 for(int i = 0; i < scene.getResolutionX()*scene.getResolutionY()*3; i++){
+	 image[i] = 120;
+	 }*/
 }
 
 /* OPENGL GRAPHICS STUFF*/
@@ -221,13 +286,13 @@ void mydisplay(void) {
 	glBindTexture(GL_TEXTURE_2D, texture);
 	glBegin(GL_QUADS);
 	glTexCoord2f(0, 0);
-	glVertex2f(-1, -1);
-	glTexCoord2f(1, 0);
-	glVertex2f(1, -1);
-	glTexCoord2f(1, 1);
 	glVertex2f(1, 1);
-	glTexCoord2f(0, 1);
+	glTexCoord2f(1, 0);
 	glVertex2f(-1, 1);
+	glTexCoord2f(1, 1);
+	glVertex2f(-1, -1);
+	glTexCoord2f(0, 1);
+	glVertex2f(1, -1);
 	glEnd();
 	glFlush();
 }
