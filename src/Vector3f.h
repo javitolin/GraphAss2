@@ -32,8 +32,10 @@
 #pragma warning(disable:4201) // disable anonymous unions warning
 #pragma warning (disable:4244) //disable warning about conversion from double to float
 #pragma warning (disable:4305) // disable warning about truncation from double to float
+#include <iostream>
 
 #include <math.h>
+using namespace std;
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
@@ -532,7 +534,9 @@ public:
 		}
 		return polar;
 	}
-	
+	static void print(Vector3f v){
+		cout << v.x << " " << v.y << " " << v.z << endl;
+	}
 	
 	
 	/**

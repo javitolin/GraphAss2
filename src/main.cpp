@@ -15,7 +15,6 @@
 #include "Sphere.h";
 #include "Intersection.h"
 #include "Ray.h"
-#include "Image.h"
 #include <limits>
 
 using namespace std;
@@ -174,7 +173,7 @@ Ray ConstructRayThroughPixel(Vector3f source, int i, int j) {
 	return ans;
 }
 Intersection FindIntersection(Ray ray) {
-	GLint min_t = numeric_limits<int>::max();
+	GLfloat min_t = numeric_limits<int>::max();
 	Sphere min_sphere;
 	Plane min_plane;
 	Vector3f poi;
@@ -203,11 +202,13 @@ Intersection FindIntersection(Ray ray) {
 				min_t = t;
 				found = true;
 				poi = poiTemp;
+				if (min_t == 0)
+					cout << "WTF" << endl;
 			}
 		}
 	}
 	if (!found) {
-		return Intersection(-1337, min_sphere, poi);
+		return Intersection(-1, min_sphere, poi);
 	} else {
 		if (fromPlane) {
 			return Intersection(min_t, min_plane, poi);
@@ -220,48 +221,65 @@ Intersection FindIntersection(Ray ray) {
 void sphereGetColor(Intersection hit, Vector3f& ans) {
 	//SPHERE
 	ans += hit.getSphere().getA() * scene.getAmbientLight();
-	Vector3f sum(0, 0, 0);
 	Vector3f hitPoint = hit.getPoi();
 	Vector3f N = hit.getSphere().getNormal(hitPoint);
-	for (unsigned int i = 0; i < lights.size(); i++) {
-		Vector3f L = lights[i].getLightPosition() - hitPoint;
-		N.normalize();
-		L.normalize();
-		sum += hit.getSphere().getD() * (L.dotProduct(L, N))
-				* lights[0].getLightIntensity();
-		Vector3f V = scene.getCamera() - hitPoint;
-		Vector3f R = 2
-				* (lights[i].getLightDirection().dotProduct(
-						lights[i].getLightDirection(), N)) * N
-				- lights[i].getLightDirection();
-		V.normalize();
-		R.normalize();
-		sum += hit.getSphere().getS()
-				* (pow(V.dotProduct(V, R), (int) hit.getSphere().getShine()));
-		if (!lights[i].isSpotlight()) {
-			sum *= lights[i].getLightIntensity();
-		} else {
-			Vector3f vecToLight = hit.poi - lights[i].getLightDirection();
-			Ray r(hit.getPoi(), vecToLight);
+	N.normalize();
+	Vector3f V = hitPoint - scene.getCamera();
+	V.normalize();
+	Vector3f L;
+	for (unsigned int i = 0; i < 2; i++) {
+		Vector3f sum(0, 0, 0);
+		Light toUse = lights[i];
+		if (toUse.isSpotlight()) {
+			L = toUse.getLightPosition() - hitPoint;
+			L.normalize();
+			Vector3f R = L - 2 * (L.dotProduct(L, N)) * N;
+			R.normalize();
+			sum += hit.getSphere().getD() * (N.dotProduct(N, L))
+					+ hit.getSphere().getS()
+							* (pow(V.dotProduct(V, R),
+									(int) hit.getSphere().getShine()));
+			Ray r(hitPoint, L);
 			Intersection in = FindIntersection(r);
-			if (in.getT() == -1337) {
-				GLfloat angle =
-						acos(
-								hit.poi.dotProduct(hit.poi, vecToLight)
-										/ (hit.poi.getLength()
-												* vecToLight.getLength()));
-				angle = angle * (180 / M_PI);
-				if (angle <= lights[i].getCutoff()) {
-					sum *= lights[i].getLightIntensity();
+			GLfloat distance = toUse.getLightPosition().distance(
+					toUse.getLightPosition(), hitPoint);
+			if (((in.isSphere && in.getT() > in.getSphere().getRadius())
+					|| (!in.isSphere && in.getT() > 0)) && in.getT() < distance) {
+				sum *= 0;
+			} else {
+				Vector3f lightDir = toUse.getLightDirection();
+				lightDir.makeNegative();
+				GLfloat opening = acos(
+						L.dotProduct(L, lightDir)
+								/ (L.getLength() * lightDir.getLength()))
+						* (180 / M_PI);
+				if (opening < toUse.getCutoff()) {
+					sum *= toUse.getLightIntensity();
 				} else {
 					sum *= 0;
 				}
-			} else if(in.getT() > 0){
+			}
+		} else {
+			//DIRECTIONAL
+			L = toUse.getLightDirection();
+			L.makeNegative();
+			L.normalize();
+			Vector3f R = L - 2 * (L.dotProduct(L, N)) * N;
+			R.normalize();
+			sum += hit.getSphere().getD() * (N.dotProduct(N, L))
+					+ hit.getSphere().getS()
+							* (pow(V.dotProduct(V, R),
+									(int) hit.getSphere().getShine()));
+			Ray r(hitPoint, L);
+			Intersection in = FindIntersection(r);
+			if (in.getT() > hit.getSphere().getRadius()) {
 				sum *= 0;
+			} else {
+				sum *= toUse.getLightIntensity();
 			}
 		}
+		ans += sum;
 	}
-	ans += sum;
 }
 
 void planeGetColor(Intersection hit, Vector3f& ans) {
@@ -270,46 +288,64 @@ void planeGetColor(Intersection hit, Vector3f& ans) {
 	Vector3f sum(0, 0, 0);
 	Vector3f hitPoint = hit.getPoi();
 	Vector3f N = hit.getPlane().getNormal();
-	for (unsigned int i = 0; i < lights.size(); i++) {
-		Vector3f L = lights[i].getLightPosition() - hitPoint;
-		N.normalize();
-		L.normalize();
-		sum += hit.getPlane().getD() * (L.dotProduct(L, N))
-				* lights[0].getLightIntensity();
-		Vector3f V = scene.getCamera() - hitPoint;
-		Vector3f R = 2
-				* (lights[i].getLightDirection().dotProduct(
-						lights[i].getLightDirection(), N)) * N
-				- lights[i].getLightDirection();
-		V.normalize();
-		R.normalize();
-		sum += hit.getPlane().getS()
-				* (pow(V.dotProduct(V, R), (int) hit.getPlane().getShine()));
-		if (!lights[i].isSpotlight()) {
-			sum *= lights[i].getLightIntensity();
-		} else {
-			Vector3f vecToLight = lights[i].getLightDirection() - hit.poi;
-			Ray r(hit.getPoi(), vecToLight);
+	N.normalize();
+	Vector3f V = hitPoint - scene.getCamera();
+	V.normalize();
+	Vector3f L;
+	for (unsigned int i = 0; i < 2; i++) {
+		Light toUse = lights[i];
+		if (toUse.isSpotlight()) {
+			L = toUse.getLightPosition() - hitPoint;
+			L.normalize();
+			Vector3f R = L - 2 * (L.dotProduct(L, N)) * N;
+			R.normalize();
+			sum += hit.getPlane().getD() * (N.dotProduct(N, L))
+					+ hit.getPlane().getS()
+							* (pow(V.dotProduct(V, R),
+									(int) hit.getPlane().getShine()));
+
+			Ray r(hitPoint, L);
 			Intersection in = FindIntersection(r);
-			if (in.getT() == -1337) {
-				Vector3f vecToLight = hit.poi - lights[i].getLightDirection();
-				GLfloat angle =
-						acos(
-								hit.poi.dotProduct(hit.poi, vecToLight)
-										/ (hit.poi.getLength()
-												* vecToLight.getLength()));
-				angle = angle * (180 / M_PI);
-				if (angle <= lights[i].getCutoff()) {
-					sum *= lights[i].getLightIntensity();
+			GLfloat distance = toUse.getLightPosition().distance(
+					toUse.getLightPosition(), hitPoint);
+			if (((in.isSphere && in.getT() > in.getSphere().getRadius())
+					|| (!in.isSphere && in.getT() > 0)) && in.getT() < distance) {
+				sum *= 0;
+			} else {
+				Vector3f lightDir = toUse.getLightDirection();
+				lightDir.makeNegative();
+				GLfloat opening = acos(
+						L.dotProduct(L, lightDir)
+								/ (L.getLength() * lightDir.getLength()))
+						* (180 / M_PI);
+				if (opening < toUse.getCutoff()) {
+					sum *= toUse.getLightIntensity();
 				} else {
 					sum *= 0;
 				}
-			} else if(in.getT() > 0){
+			}
+		} else {
+			//DIRECTIONAL
+			L = toUse.getLightDirection();
+			L.makeNegative();
+			L.normalize();
+			Vector3f R = L - 2 * (L.dotProduct(L, N)) * N;
+			R.normalize();
+			sum += hit.getPlane().getD() * (N.dotProduct(N, L))
+					+ hit.getPlane().getS()
+							* (pow(V.dotProduct(V, R),
+									(int) hit.getPlane().getShine()));
+			//sum.print(sum);
+			Ray r(hitPoint, L);
+			Intersection in = FindIntersection(r);
+			if (in.getT() > 0.05) {
 				sum *= 0;
+			} else {
+				sum *= toUse.getLightIntensity();
 			}
 		}
+		ans += sum;
 	}
-	ans += sum;
 }
 
 Vector3f GetColor(Ray ray, Intersection hit) {
@@ -333,7 +369,6 @@ Vector3f GetColor(Ray ray, Intersection hit) {
 		ans.y = 0;
 	if (ans.z < 0)
 		ans.z = 0;
-	//cout << ans.x << " " << ans.y << " " << ans.z << endl;
 	return ans;
 }
 
