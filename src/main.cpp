@@ -244,16 +244,14 @@ void sphereGetColor(Intersection hit, Vector3f& ans) {
 			GLfloat distance = toUse.getLightPosition().distance(
 					toUse.getLightPosition(), hitPoint);
 			if (((in.isSphere && in.getT() > in.getSphere().getRadius())
-					|| (!in.isSphere && in.getT() > 0)) && in.getT() < distance) {
+					|| (!in.isSphere && in.getT() > 0))
+					&& in.getT() < distance) {
 				sum *= 0;
 			} else {
 				Vector3f lightDir = toUse.getLightDirection();
 				lightDir.makeNegative();
-				GLfloat opening = acos(
-						L.dotProduct(L, lightDir)
-								/ (L.getLength() * lightDir.getLength()))
-						* (180 / M_PI);
-				if (opening < toUse.getCutoff()) {
+				GLfloat opening = lightDir.dotProduct(lightDir, L);
+				if (opening > cos(toUse.getCutoff())) {
 					sum *= toUse.getLightIntensity();
 				} else {
 					sum *= 0;
@@ -309,16 +307,18 @@ void planeGetColor(Intersection hit, Vector3f& ans) {
 			GLfloat distance = toUse.getLightPosition().distance(
 					toUse.getLightPosition(), hitPoint);
 			if (((in.isSphere && in.getT() > in.getSphere().getRadius())
-					|| (!in.isSphere && in.getT() > 0)) && in.getT() < distance) {
+					|| (!in.isSphere && in.getT() > 0))
+					&& in.getT() < distance) {
 				sum *= 0;
 			} else {
+
 				Vector3f lightDir = toUse.getLightDirection();
 				lightDir.makeNegative();
-				GLfloat opening = acos(
-						L.dotProduct(L, lightDir)
-								/ (L.getLength() * lightDir.getLength()))
-						* (180 / M_PI);
-				if (opening < toUse.getCutoff()) {
+				L.makeNegative();
+				GLfloat opening = lightDir.dotProduct(lightDir, L);
+				//cout <<opening <<"    " << cos(toUse.getCutoff()) <<endl;
+				if (opening > cos(toUse.getCutoff())) {
+					//toUse.getLightIntensity().print(toUse.getLightIntensity());
 					sum *= toUse.getLightIntensity();
 				} else {
 					sum *= 0;
