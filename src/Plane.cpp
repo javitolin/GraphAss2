@@ -15,11 +15,8 @@ Plane::Plane(Vector3f n,Vector3f c,Vector3f kAv,Vector3f kDv,Vector3f kSv, GLflo
 	normal = n;
 	center = c;
 	kA = kAv;
-	kA.normalize();
 	kD = kDv;
-	kD.normalize();
 	kS = kSv;
-	kS.normalize();
 	width = w;
 	height = h;
 	shine = s;

@@ -33,6 +33,10 @@ Vector3f campos;
 Vector3f X(1, 0, 0);
 Vector3f Y(0, 1, 0);
 Vector3f Z(0, 0, 1);
+/*
+ * Help function to extract the numbers from the text file.
+ * Works like "Split" in Java.
+ */
 vector<float> extractNumbers(char *line) {
 	vector<float> a;
 	string s = line;
@@ -45,7 +49,6 @@ vector<float> extractNumbers(char *line) {
 			ss >> f;
 			a.push_back(f);
 			forNow = "";
-			//cout << f << endl;
 		} else {
 			if (s[i] != ' ') {
 				forNow += s[i];
@@ -58,18 +61,27 @@ vector<float> extractNumbers(char *line) {
 	ss >> f;
 	a.push_back(f);
 	forNow = "";
-	//cout << f << endl;
 	return a;
 }
-
+/*
+ * Main controler of the functions. Starts the ray tracing algorithm
+ * and the image drawer algorithm.
+ */
 void startRay() {
 	image = new GLubyte[scene.getResolutionX() * scene.getResolutionY() * 3];
 	startRayTracing();
 	drawImage();
 }
 
+/*
+ * Main function.
+ * - Reads from file
+ * - Creates all objects and adds them to vectors
+ * - Starts OpenGL engine
+ * - Print Pro Tips and usage
+ */
 int main(int argc, char* argv[]) {
-	ifstream sceneFile("scene.txt");
+	ifstream sceneFile((argc > 1) ? argv[1] : "scene.txt");
 	char output[512];
 	int objectsFound = 0;
 	while (sceneFile.is_open()) {
@@ -78,7 +90,6 @@ int main(int argc, char* argv[]) {
 			if (strcmp(output, "scene") == 0) {
 				objectsFound++;
 				sceneFile >> output;
-				//cout << "scene!" << endl;
 				vector<float> params = extractNumbers(output);
 				Vector3f cc(params[0], params[1], params[2]);
 				Vector3f up(params[3], params[4], params[5]);
@@ -90,7 +101,6 @@ int main(int argc, char* argv[]) {
 			} else if (strcmp(output, "light") == 0) {
 				objectsFound++;
 				sceneFile >> output;
-				//cout << "light!" << endl;
 				extractNumbers(output);
 				vector<float> params = extractNumbers(output);
 				Vector3f ld(params[0], params[1], params[2]);
@@ -107,7 +117,6 @@ int main(int argc, char* argv[]) {
 			} else if (strcmp(output, "spher") == 0) {
 				objectsFound++;
 				sceneFile >> output;
-				//cout << "spher!" << endl;
 				extractNumbers(output);
 				vector<float> params = extractNumbers(output);
 				Vector3f c(params[0], params[1], params[2]);
@@ -120,7 +129,6 @@ int main(int argc, char* argv[]) {
 			} else if (strcmp(output, "plane") == 0) {
 				objectsFound++;
 				sceneFile >> output;
-				//cout << "plane!" << endl;
 				extractNumbers(output);
 				vector<float> params = extractNumbers(output);
 				Vector3f n(params[0], params[1], params[2]);
@@ -136,23 +144,26 @@ int main(int argc, char* argv[]) {
 		}
 		sceneFile.close();
 	}
+	cout
+			<< "PRO HINT: You can change the file to read by calling this program with the file name as a parameter"
+			<< endl;
 	cout << "YOU CAN MOVE THE OBJECTS!" << endl;
 	cout << "Enter the number of the object to move" << endl;
-	cout
-			<< "Enter 'c' if you want to move a Sphere or 'v' if you want to move a Plane"
-			<< endl;
+	cout << "Enter 'c' if you want to move a Sphere" << endl;
 	cout << "Use 'w' and 's' to move the object up and down" << endl;
 	cout << "Use 'a' and 'd' to move the object left and right" << endl;
 	cout << "Use 'q' and 'e' to move the object nearer and farer" << endl;
 	glutInit(&argc, argv);
 	startRay();
-	cout << "Reading file completed. Found: " << objectsFound << " objects"
-			<< endl;
 	delete image;
 	return 0;
 }
+/*
+ * Constructing the ray through pixel. We receive the source of the ray and
+ * the pixel (i,j) where the ray must go through it.
+ * Returns an object Ray according to the algorithm shown in class
+ */
 Ray ConstructRayThroughPixel(Vector3f source, int i, int j) {
-	//scene.getCenterCoordinates() +
 	GLfloat d = scene.getCenterCoordinates().distance(
 			scene.getCenterCoordinates(), source);
 	Vector3f Pc = source + scene.getCenterCoordinates() * d;
@@ -172,6 +183,11 @@ Ray ConstructRayThroughPixel(Vector3f source, int i, int j) {
 	Ray ans(source, P);
 	return ans;
 }
+/*
+ * This function receives a Ray and tries to find an intersection between that ray
+ * and an object in the screen (Spheres or Planes)
+ * This function returns an Intersection object
+ */
 Intersection FindIntersection(Ray ray) {
 	GLfloat min_t = numeric_limits<int>::max();
 	Sphere min_sphere;
@@ -202,8 +218,6 @@ Intersection FindIntersection(Ray ray) {
 				min_t = t;
 				found = true;
 				poi = poiTemp;
-				if (min_t == 0)
-					cout << "WTF" << endl;
 			}
 		}
 	}
@@ -217,9 +231,12 @@ Intersection FindIntersection(Ray ray) {
 		}
 	}
 }
-
+/*
+ * This function calculates the color for a Sphere in the scene.
+ * It receives the Intersection hit, where the ray hit the Sphere and returns the
+ * answer in the ans Vector3f.
+ */
 void sphereGetColor(Intersection hit, Vector3f& ans) {
-	//SPHERE
 	ans += hit.getSphere().getA() * scene.getAmbientLight();
 	Vector3f hitPoint = hit.getPoi();
 	Vector3f N = hit.getSphere().getNormal(hitPoint);
@@ -227,33 +244,35 @@ void sphereGetColor(Intersection hit, Vector3f& ans) {
 	Vector3f V = hitPoint - scene.getCamera();
 	V.normalize();
 	Vector3f L;
-	for (unsigned int i = 0; i < 2; i++) {
+	for (unsigned int i = 0; i < lights.size(); i++) {
 		Vector3f sum(0, 0, 0);
 		Light toUse = lights[i];
 		if (toUse.isSpotlight()) {
 			L = toUse.getLightPosition() - hitPoint;
+			L.makeNegative();
 			L.normalize();
 			Vector3f R = L - 2 * (L.dotProduct(L, N)) * N;
 			R.normalize();
 			sum += hit.getSphere().getD() * (N.dotProduct(N, L))
 					+ hit.getSphere().getS()
 							* (pow(V.dotProduct(V, R),
-									(int) hit.getSphere().getShine()));
-			Ray r(hitPoint, L);
+									hit.getSphere().getShine()));
+
+			Ray r(toUse.getLightPosition(), L); //From spotlight to hitPoint
 			Intersection in = FindIntersection(r);
 			GLfloat distance = toUse.getLightPosition().distance(
 					toUse.getLightPosition(), hitPoint);
-			if (((in.isSphere && in.getT() > in.getSphere().getRadius())
-					|| (!in.isSphere && in.getT() > 0))
-					&& in.getT() < distance) {
+			if (in.getT() < distance && in.getT() > 0) {
 				sum *= 0;
 			} else {
 				Vector3f lightDir = toUse.getLightDirection();
-				lightDir.makeNegative();
+				lightDir.normalize();
 				GLfloat opening = lightDir.dotProduct(lightDir, L);
 				if (opening > cos(toUse.getCutoff())) {
-					sum *= toUse.getLightIntensity();
+					//Inside the angle of spotligh
+					sum *= toUse.getLightIntensity() * 2;
 				} else {
+					//Outside
 					sum *= 0;
 				}
 			}
@@ -267,10 +286,11 @@ void sphereGetColor(Intersection hit, Vector3f& ans) {
 			sum += hit.getSphere().getD() * (N.dotProduct(N, L))
 					+ hit.getSphere().getS()
 							* (pow(V.dotProduct(V, R),
-									(int) hit.getSphere().getShine()));
+									hit.getSphere().getShine()));
 			Ray r(hitPoint, L);
 			Intersection in = FindIntersection(r);
 			if (in.getT() > hit.getSphere().getRadius()) {
+				//Hit something
 				sum *= 0;
 			} else {
 				sum *= toUse.getLightIntensity();
@@ -279,7 +299,11 @@ void sphereGetColor(Intersection hit, Vector3f& ans) {
 		ans += sum;
 	}
 }
-
+/*
+ * This function calculates the color for a Plane in the scene.
+ * It receives the Intersection hit, where the ray hit the Plane and returns the
+ * answer in the ans Vector3f.
+ */
 void planeGetColor(Intersection hit, Vector3f& ans) {
 	//PLANE
 	ans += hit.getPlane().getA() * scene.getAmbientLight();
@@ -290,37 +314,35 @@ void planeGetColor(Intersection hit, Vector3f& ans) {
 	Vector3f V = hitPoint - scene.getCamera();
 	V.normalize();
 	Vector3f L;
-	for (unsigned int i = 0; i < 2; i++) {
+	for (unsigned int i = 0; i < lights.size(); i++) {
 		Light toUse = lights[i];
 		if (toUse.isSpotlight()) {
 			L = toUse.getLightPosition() - hitPoint;
+			L.makeNegative();
 			L.normalize();
 			Vector3f R = L - 2 * (L.dotProduct(L, N)) * N;
 			R.normalize();
 			sum += hit.getPlane().getD() * (N.dotProduct(N, L))
 					+ hit.getPlane().getS()
 							* (pow(V.dotProduct(V, R),
-									(int) hit.getPlane().getShine()));
+									hit.getPlane().getShine()));
 
-			Ray r(hitPoint, L);
+			Ray r(toUse.getLightPosition(), L); //From spotlight to hitPoint
 			Intersection in = FindIntersection(r);
 			GLfloat distance = toUse.getLightPosition().distance(
 					toUse.getLightPosition(), hitPoint);
-			if (((in.isSphere && in.getT() > in.getSphere().getRadius())
-					|| (!in.isSphere && in.getT() > 0))
-					&& in.getT() < distance) {
+			if (in.getT() < distance && in.getT() > 0) {
+				//Hit something
 				sum *= 0;
 			} else {
-
 				Vector3f lightDir = toUse.getLightDirection();
-				lightDir.makeNegative();
-				L.makeNegative();
+				lightDir.normalize();
 				GLfloat opening = lightDir.dotProduct(lightDir, L);
-				//cout <<opening <<"    " << cos(toUse.getCutoff()) <<endl;
 				if (opening > cos(toUse.getCutoff())) {
-					//toUse.getLightIntensity().print(toUse.getLightIntensity());
-					sum *= toUse.getLightIntensity();
+					//Inside the angle of the spotlight
+					sum *= toUse.getLightIntensity() * 2;
 				} else {
+					//Outside
 					sum *= 0;
 				}
 			}
@@ -334,20 +356,24 @@ void planeGetColor(Intersection hit, Vector3f& ans) {
 			sum += hit.getPlane().getD() * (N.dotProduct(N, L))
 					+ hit.getPlane().getS()
 							* (pow(V.dotProduct(V, R),
-									(int) hit.getPlane().getShine()));
-			//sum.print(sum);
+									hit.getPlane().getShine()));
 			Ray r(hitPoint, L);
 			Intersection in = FindIntersection(r);
-			if (in.getT() > 0.05) {
+			if (in.getT() > 0) {
+				//Hit something
 				sum *= 0;
 			} else {
-				sum *= toUse.getLightIntensity();
+				//Didn't hit anything
+				sum *= toUse.getLightIntensity() * 2;
 			}
 		}
 		ans += sum;
 	}
 }
-
+/*
+ * This function controls the color of the objects.
+ * Also, it makes sure the color intensity is between 0-1.
+ */
 Vector3f GetColor(Ray ray, Intersection hit) {
 	Vector3f ans(0, 0, 0);
 	if (hit.isSphere) {
@@ -357,12 +383,14 @@ Vector3f GetColor(Ray ray, Intersection hit) {
 		//PLANE
 		planeGetColor(hit, ans);
 	}
+	//Normalizing values
 	if (ans.x > 1)
 		ans.x = 1;
 	if (ans.y > 1)
 		ans.y = 1;
 	if (ans.z > 1)
 		ans.z = 1;
+
 	if (ans.x < 0)
 		ans.x = 0;
 	if (ans.y < 0)
@@ -371,20 +399,29 @@ Vector3f GetColor(Ray ray, Intersection hit) {
 		ans.z = 0;
 	return ans;
 }
-
+/*
+ * Main loop for ray tracing.
+ * - Shoots ray from pixel (i,j)
+ * - Finds intersection with object
+ * - Calculates correct color to put in that pixel
+ */
 void startRayTracing() {
 	GLint width = scene.getResolutionX();
 	GLint height = scene.getResolutionY();
 	for (int i = 0; i < width; i++) {
 		for (int j = 0; j < height; j++) {
+			//Construct Ray
 			Ray ray = ConstructRayThroughPixel(scene.getCamera(), i, j);
+			//Try to hit something
 			Intersection hit = FindIntersection(ray);
 			if (hit.t > 0) {
+				//We hit!
 				Vector3f color = GetColor(ray, hit);
 				image[3 * (i + j * width) + 0] = color.z * 255;
 				image[3 * (i + j * width) + 1] = color.y * 255;
 				image[3 * (i + j * width) + 2] = color.x * 255;
 			} else {
+				//Didn't hit anything
 				image[3 * (i + j * width) + 0] = 0;
 				image[3 * (i + j * width) + 1] = 0;
 				image[3 * (i + j * width) + 2] = 0;
@@ -442,12 +479,15 @@ void mydisplay(void) {
 }
 int lastNumberPressed = -1;
 bool spherePressed;
+/*
+ * Key pressed function.
+ * Does all the motion cool stuff added to this project.
+ */
 void keyPressed(unsigned char key, int x, int y) {
 	if (key >= 48 && key <= 57) {
 		lastNumberPressed = (int) (key - '0');
-	} else if (lastNumberPressed == -1) {
-		cout << "Insert a number and then c for Spheres or v for Planes"
-				<< endl;
+	} else if (lastNumberPressed == -1 && key != 'f') {
+		cout << "Insert a number and then c for Spheres" << endl;
 	} else {
 		switch (key) {
 		case 'a':
@@ -508,10 +548,9 @@ void keyPressed(unsigned char key, int x, int y) {
 			spherePressed = true;
 			cout << "Sphere number " << lastNumberPressed << " chosen" << endl;
 			break;
-		case 'v':
-			spherePressed = false;
-			cout << "Plane number " << lastNumberPressed << " chosen" << endl;
-			break;
+		case 'f':
+			cout << "Exiting..." << endl;
+			exit(0);
 		}
 	}
 	startRayTracing();

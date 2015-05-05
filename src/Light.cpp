@@ -11,11 +11,9 @@ namespace ShapeObjects {
 
 Light::Light(Vector3f ld,Vector3f li,Vector3f lp,bool spot,GLfloat cut) {
 	lightDirection = ld;
-	lightDirection.normalize();
+	ld.normalize();
 	lightIntensity = li;
-	lightIntensity.normalize();
 	lightPosition = lp;
-	lightPosition.normalize();
 	spotlight = spot;
 	cutoff = cut;
 }

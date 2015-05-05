@@ -14,11 +14,8 @@ Sphere::Sphere(Vector3f c, Vector3f kAv, Vector3f kDv, Vector3f kSv, GLfloat r,
 	radius = r;
 	center = c;
 	kA = kAv;
-	kA.normalize();
 	kD = kDv;
-	kD.normalize();
 	kS = kSv;
-	kS.normalize();
 	shine = sh;
 }
 GLfloat Sphere::intersect(Scene s, Ray ray, Vector3f& v) {
